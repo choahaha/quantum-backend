@@ -25,7 +25,6 @@ class QuantumExecutor:
     def __init__(self):
         self.circuit = None
         self.num_qubits = 0
-        self.num_clbits = 0
 
     def is_available(self) -> bool:
         return QISKIT_AVAILABLE
@@ -124,8 +123,7 @@ class QuantumExecutor:
 
             if opcode == 'quantum_createCircuit':
                 self.num_qubits = int(args.get('NUM_QUBITS', 1))
-                self.num_clbits = int(args.get('NUM_CLBITS', 1))
-                self.circuit = QuantumCircuit(self.num_qubits, self.num_clbits)
+                self.circuit = QuantumCircuit(self.num_qubits)
 
             elif self.circuit is not None:
                 self._apply_gate(opcode, args)
@@ -161,13 +159,6 @@ class QuantumExecutor:
                 raise ValueError("Control and target qubits must be different")
             self.circuit.cx(control, target)
 
-        elif opcode == 'quantum_measure':
-            qubit = int(args.get('QUBIT', 0))
-            clbit = int(args.get('CLBIT', 0))
-            self._validate_qubit(qubit)
-            self._validate_clbit(clbit)
-            self.circuit.measure(qubit, clbit)
-
         elif opcode == 'quantum_measureAll':
             self.circuit.measure_all()
 
@@ -175,11 +166,6 @@ class QuantumExecutor:
         """Validate qubit index"""
         if qubit < 0 or qubit >= self.num_qubits:
             raise ValueError(f"Qubit {qubit} out of range (0-{self.num_qubits-1})")
-
-    def _validate_clbit(self, clbit: int) -> None:
-        """Validate classical bit index"""
-        if clbit < 0 or clbit >= self.num_clbits:
-            raise ValueError(f"Classical bit {clbit} out of range (0-{self.num_clbits-1})")
 
     def _format_result(self, counts: Dict[str, int], total_shots: int) -> str:
         """Format counts to readable text"""
