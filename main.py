@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from executor import QuantumExecutor, create_histogram
+from executor import QuantumExecutor, create_histogram, create_circuit_diagram
 
 app = FastAPI(
     title="Scratch Quantum API",
@@ -56,6 +56,16 @@ class HistogramResponse(BaseModel):
     error: Optional[str] = None
 
 
+class CircuitDiagramRequest(BaseModel):
+    blocks: List[BlockData]
+
+
+class CircuitDiagramResponse(BaseModel):
+    success: bool
+    image_base64: Optional[str] = None
+    error: Optional[str] = None
+
+
 @app.get("/")
 async def root():
     return {"message": "Scratch Quantum API", "status": "running"}
@@ -98,6 +108,17 @@ async def create_histogram_chart(request: HistogramRequest):
         return HistogramResponse(success=True, image_base64=image_base64)
     except Exception as e:
         return HistogramResponse(success=False, error=str(e))
+
+
+@app.post("/api/visualization/circuit-diagram", response_model=CircuitDiagramResponse)
+async def create_circuit_diagram_chart(request: CircuitDiagramRequest):
+    """Create circuit diagram from quantum blocks"""
+    try:
+        blocks = [{"opcode": b.opcode, "args": b.args} for b in request.blocks]
+        image_base64 = create_circuit_diagram(blocks)
+        return CircuitDiagramResponse(success=True, image_base64=image_base64)
+    except Exception as e:
+        return CircuitDiagramResponse(success=False, error=str(e))
 
 
 if __name__ == "__main__":

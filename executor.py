@@ -117,6 +117,34 @@ def create_histogram(data_str: str) -> str:
     return f"data:image/png;base64,{image_base64}"
 
 
+def create_circuit_diagram(blocks: List[Dict[str, Any]]) -> str:
+    """Create circuit diagram image from quantum blocks using qc.draw('mpl')"""
+    if not QISKIT_AVAILABLE:
+        raise ValueError("Qiskit is not installed")
+    if not MATPLOTLIB_AVAILABLE:
+        raise ValueError("matplotlib is not installed")
+
+    # Build the circuit
+    executor = QuantumExecutor()
+    executor._validate_blocks(blocks)
+    executor._build_circuit(blocks)
+
+    if executor.circuit is None:
+        raise ValueError("No circuit created. Use 'quantum_createCircuit' block first.")
+
+    # Draw the circuit using matplotlib backend
+    fig = executor.circuit.draw(output='mpl')
+
+    # Convert to base64
+    buffer = BytesIO()
+    fig.savefig(buffer, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+    buffer.seek(0)
+    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    plt.close(fig)
+
+    return f"data:image/png;base64,{image_base64}"
+
+
 class QuantumExecutor:
     """Execute quantum circuits from block data"""
 

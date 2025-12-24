@@ -4,3 +4,4 @@ qiskit>=1.0.0
 qiskit-aer>=0.13.0
 pydantic>=2.5.0
 matplotlib>=3.8.0
+pylatexenc>=2.10
