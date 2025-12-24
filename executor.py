@@ -25,40 +25,91 @@ except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
 
+def parse_text_result(text: str) -> dict:
+    """Parse text format like '|1>: 525 (52.5%), |0>: 475 (47.5%)' to counts dict"""
+    import re
+    counts = {}
+    # Match patterns like |1>: 525 or |01>: 512
+    pattern = r'\|([01]+)>:\s*(\d+)'
+    matches = re.findall(pattern, text)
+    for state, count in matches:
+        counts[state] = int(count)
+    return counts
+
+
 def create_histogram(data_str: str) -> str:
     """Create histogram image from quantum counts data"""
     if not MATPLOTLIB_AVAILABLE:
         raise ValueError("matplotlib is not installed")
 
-    # Parse data (handles both dict-like string and JSON)
+    # Parse data (handles JSON, dict-like string, or text format)
     data_str = data_str.strip()
+
     if data_str.startswith('{'):
-        # Convert Python dict string to JSON format
+        # JSON or Python dict format: {"0": 475, "1": 525}
         data_str = data_str.replace("'", '"')
+        counts = json.loads(data_str)
+    elif '|' in data_str and '>:' in data_str:
+        # Text format: |1>: 525 (52.5%), |0>: 475 (47.5%)
+        counts = parse_text_result(data_str)
+        if not counts:
+            raise ValueError("Could not parse text result format")
+    else:
+        # Try JSON anyway
+        counts = json.loads(data_str)
 
-    counts = json.loads(data_str)
-
-    # Create histogram
+    # Create histogram with Scratch Blue Gradient style
     states = list(counts.keys())
     values = list(counts.values())
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(states, values, color='#8C8C8C', edgecolor='#666666')
+    # Scratch Blue gradient colors
+    scratch_colors = [
+        '#4C97FF',  # Scratch Blue
+        '#9966FF',  # Scratch Purple
+        '#FFAB19',  # Scratch Orange
+        '#40BF4A',  # Scratch Green
+        '#FF6680',  # Scratch Pink
+        '#4CBFE6',  # Scratch Cyan
+    ]
 
-    ax.set_xlabel('Quantum State')
-    ax.set_ylabel('Count')
-    ax.set_title('Quantum Measurement Results')
+    # Format state labels with ket notation
+    formatted_states = [f'|{s}⟩' for s in states]
+
+    # Assign colors to bars
+    bar_colors = [scratch_colors[i % len(scratch_colors)] for i in range(len(states))]
+
+    fig, ax = plt.subplots(figsize=(6, 4), facecolor='#f8faff')
+    ax.set_facecolor('#f8faff')
+
+    bars = ax.bar(formatted_states, values, color=bar_colors, edgecolor='white', linewidth=2, width=0.6)
+
+    # Style the chart (no title - shown in modal header)
+    ax.set_xlabel('Quantum State', fontsize=11, color='#555', fontweight='500')
+    ax.set_ylabel('Count', fontsize=11, color='#555', fontweight='500')
+
+    # Remove top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#ccc')
+    ax.spines['bottom'].set_color('#ccc')
+
+    # Style tick labels
+    ax.tick_params(axis='both', colors='#555', labelsize=10)
+
+    # Add grid lines
+    ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#ddd')
+    ax.set_axisbelow(True)
 
     # Add value labels on bars
     for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height(),
-                str(val), ha='center', va='bottom', fontsize=10)
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(values)*0.02,
+                str(val), ha='center', va='bottom', fontsize=11, fontweight='600', color='#333')
 
     plt.tight_layout()
 
     # Convert to base64
     buffer = BytesIO()
-    plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+    plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
     buffer.seek(0)
     image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     plt.close(fig)
