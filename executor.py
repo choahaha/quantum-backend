@@ -4,6 +4,9 @@ Converts Scratch blocks to Qiskit code and executes
 """
 
 import time
+import json
+import base64
+from io import BytesIO
 from typing import List, Dict, Any
 
 try:
@@ -12,6 +15,55 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     QISKIT_AVAILABLE = False
+
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # Non-GUI backend
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+
+
+def create_histogram(data_str: str) -> str:
+    """Create histogram image from quantum counts data"""
+    if not MATPLOTLIB_AVAILABLE:
+        raise ValueError("matplotlib is not installed")
+
+    # Parse data (handles both dict-like string and JSON)
+    data_str = data_str.strip()
+    if data_str.startswith('{'):
+        # Convert Python dict string to JSON format
+        data_str = data_str.replace("'", '"')
+
+    counts = json.loads(data_str)
+
+    # Create histogram
+    states = list(counts.keys())
+    values = list(counts.values())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(states, values, color='#8C8C8C', edgecolor='#666666')
+
+    ax.set_xlabel('Quantum State')
+    ax.set_ylabel('Count')
+    ax.set_title('Quantum Measurement Results')
+
+    # Add value labels on bars
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height(),
+                str(val), ha='center', va='bottom', fontsize=10)
+
+    plt.tight_layout()
+
+    # Convert to base64
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+    buffer.seek(0)
+    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    plt.close(fig)
+
+    return f"data:image/png;base64,{image_base64}"
 
 
 class QuantumExecutor:

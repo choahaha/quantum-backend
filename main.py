@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from executor import QuantumExecutor
+from executor import QuantumExecutor, create_histogram
 
 app = FastAPI(
     title="Scratch Quantum API",
@@ -46,6 +46,16 @@ class ExecuteResponse(BaseModel):
     execution_time: Optional[float] = None
 
 
+class HistogramRequest(BaseModel):
+    data: str  # JSON string: "{'00': 512, '11': 512}"
+
+
+class HistogramResponse(BaseModel):
+    success: bool
+    image_base64: Optional[str] = None
+    error: Optional[str] = None
+
+
 @app.get("/")
 async def root():
     return {"message": "Scratch Quantum API", "status": "running"}
@@ -78,6 +88,16 @@ async def execute_circuit(request: ExecuteRequest):
     result = executor.execute(blocks, request.shots)
 
     return ExecuteResponse(**result)
+
+
+@app.post("/api/visualization/histogram", response_model=HistogramResponse)
+async def create_histogram_chart(request: HistogramRequest):
+    """Create histogram from quantum measurement data"""
+    try:
+        image_base64 = create_histogram(request.data)
+        return HistogramResponse(success=True, image_base64=image_base64)
+    except Exception as e:
+        return HistogramResponse(success=False, error=str(e))
 
 
 if __name__ == "__main__":
