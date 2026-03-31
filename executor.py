@@ -192,18 +192,21 @@ class QuantumExecutor:
 
             # Execute
             simulator = Aer.get_backend('aer_simulator')
-            job = simulator.run(self.circuit, shots=min(shots, self.MAX_SHOTS))
+            actual_shots = min(shots, self.MAX_SHOTS)
+            job = simulator.run(self.circuit, shots=actual_shots, memory=True)
             result = job.result()
             counts = result.get_counts()
+            shots_detail = result.get_memory()
 
             execution_time = time.time() - start_time
 
             # Format result text
-            result_text = self._format_result(counts, shots)
+            result_text = self._format_result(counts, actual_shots)
 
             return {
                 "success": True,
                 "counts": counts,
+                "shots_detail": shots_detail,
                 "result_text": result_text,
                 "error": None,
                 "execution_time": execution_time

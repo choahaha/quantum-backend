@@ -41,6 +41,7 @@ class ExecuteRequest(BaseModel):
 class ExecuteResponse(BaseModel):
     success: bool
     counts: Optional[Dict[str, int]] = None
+    shots_detail: Optional[list] = None
     result_text: Optional[str] = None
     error: Optional[str] = None
     execution_time: Optional[float] = None
