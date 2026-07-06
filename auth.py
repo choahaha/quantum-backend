@@ -22,6 +22,9 @@ def _decode(token: str) -> dict:
         SUPABASE_JWT_SECRET,
         algorithms=["HS256"],
         audience="authenticated",
+        # Tolerate small clock skew between this server and Supabase Auth
+        # (a future iat otherwise raises ImmatureSignatureError).
+        leeway=30,
     )
 
 
