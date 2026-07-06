@@ -131,14 +131,14 @@ def grade(blocks: List[Dict], spec: Dict) -> Dict[str, Any]:
             # Fail closed: an unknown check type means grader and seed are
             # out of sync — reject loudly instead of silently passing.
             passed = False
-            feedback = f"지원하지 않는 채점 규칙입니다: {check_type}"
+            feedback = f"Unsupported grading rule: {check_type}"
         else:
             try:
                 passed = checker(blocks, check, ctx)
             except Exception as e:  # malformed spec or circuit
                 passed = False
                 ctx["error"] = str(e)
-            feedback = "" if passed else check.get("feedback_fail", "조건을 만족하지 못했어요.")
+            feedback = "" if passed else check.get("feedback_fail", "This requirement wasn't met.")
             if not passed and ctx.get("error"):
                 feedback = f"{feedback} ({ctx['error']})"
 
