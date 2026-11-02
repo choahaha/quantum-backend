@@ -25,6 +25,7 @@ class BlockData(BaseModel):
 class ExecuteRequest(BaseModel):
     blocks: List[BlockData]
     shots: int = 1024
+    locale: Optional[str] = None  # "ko" or "en": language for learner-facing errors
 
 
 class ExecuteResponse(BaseModel):
@@ -48,6 +49,7 @@ class HistogramResponse(BaseModel):
 
 class CircuitDiagramRequest(BaseModel):
     blocks: List[BlockData]
+    locale: Optional[str] = None
 
 
 class CircuitDiagramResponse(BaseModel):
@@ -84,8 +86,8 @@ async def execute_circuit(request: ExecuteRequest):
     # Convert BlockData to dict
     blocks = [{"opcode": b.opcode, "args": b.args} for b in request.blocks]
 
-    # Execute
-    result = executor.execute(blocks, request.shots)
+    # Execute (fresh executor per request so the locale and circuit state never leak between requests)
+    result = QuantumExecutor(request.locale or "en").execute(blocks, request.shots)
 
     return ExecuteResponse(**result)
 
@@ -105,7 +107,7 @@ async def create_circuit_diagram_chart(request: CircuitDiagramRequest):
     """Create circuit diagram from quantum blocks"""
     try:
         blocks = [{"opcode": b.opcode, "args": b.args} for b in request.blocks]
-        image_base64 = create_circuit_diagram(blocks)
+        image_base64 = create_circuit_diagram(blocks, request.locale or "en")
         return CircuitDiagramResponse(success=True, image_base64=image_base64)
     except Exception as e:
         return CircuitDiagramResponse(success=False, error=str(e))

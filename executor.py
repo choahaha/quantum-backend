@@ -25,6 +25,53 @@ except ImportError:
     MATPLOTLIB_AVAILABLE = False
 
 
+# Learner-facing messages for state preparation errors. The Scratch VM checks the
+# same rules first, so these mainly guard direct API calls and mission grading.
+PREPARE_MESSAGES = {
+    "en": {
+        "no_circuit": 'Run the "create a circuit" block first.',
+        "order": 'Put the "prepare qubit" blocks before any gate or measurement blocks.',
+        "duplicate": "Qubit {qubit} is already prepared. Change the state in the existing prepare block instead.",
+        "bad_qubit": "Qubit {qubit} is not in this circuit. Use a whole number from 0 to {max}.",
+        "bad_state": "The state must be 0 or 1.",
+    },
+    "ko": {
+        "no_circuit": "먼저 회로 만들기 블록을 실행해 주세요.",
+        "order": "상태 준비 블록을 게이트와 측정 블록보다 앞에 놓아 주세요.",
+        "duplicate": "큐비트 {qubit}은(는) 이미 준비했어요. 기존 준비 블록의 상태를 변경해 주세요.",
+        "bad_qubit": "회로에 없는 큐비트 번호예요({qubit}). 0부터 {max}까지의 정수를 입력해 주세요.",
+        "bad_state": "상태는 0 또는 1만 선택할 수 있어요.",
+    },
+}
+
+
+def _prepare_message(locale: str, key: str, **params) -> str:
+    table = PREPARE_MESSAGES["ko" if (locale or "").lower().startswith("ko") else "en"]
+    return table[key].format(**params)
+
+
+def _parse_int_exact(value: Any):
+    """Return value as an int only if it is exactly a whole number, else None.
+
+    Unlike int(), this never rounds or truncates: 1.5, "1.5", "", True and
+    "abc" are all rejected so invalid input is reported instead of corrected.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            number = float(text)
+        except ValueError:
+            return None
+        return int(number) if text and number.is_integer() else None
+    return None
+
+
 def parse_text_result(text: str) -> dict:
     """Parse text format like '|1>: 525 (52.5%), |0>: 475 (47.5%)' to counts dict"""
     import re
@@ -117,7 +164,7 @@ def create_histogram(data_str: str) -> str:
     return f"data:image/png;base64,{image_base64}"
 
 
-def create_circuit_diagram(blocks: List[Dict[str, Any]]) -> str:
+def create_circuit_diagram(blocks: List[Dict[str, Any]], locale: str = "en") -> str:
     """Create circuit diagram image from quantum blocks using qc.draw('mpl')"""
     if not QISKIT_AVAILABLE:
         raise ValueError("Qiskit is not installed")
@@ -125,7 +172,7 @@ def create_circuit_diagram(blocks: List[Dict[str, Any]]) -> str:
         raise ValueError("matplotlib is not installed")
 
     # Build the circuit
-    executor = QuantumExecutor()
+    executor = QuantumExecutor(locale)
     executor._validate_blocks(blocks)
     executor._build_circuit(blocks)
 
@@ -153,9 +200,10 @@ class QuantumExecutor:
     MAX_GATES = 100
     MAX_SHOTS = 10000
 
-    def __init__(self):
+    def __init__(self, locale: str = "en"):
         self.circuit = None
         self.num_qubits = 0
+        self.locale = locale
 
     def is_available(self) -> bool:
         return QISKIT_AVAILABLE
@@ -250,6 +298,9 @@ class QuantumExecutor:
     def _build_circuit(self, blocks: List[Dict]) -> None:
         """Build quantum circuit from blocks"""
         self.circuit = None
+        # State preparation bookkeeping, reset by every new circuit
+        self.prepared_qubits = set()
+        self.operations_started = False
 
         for block in blocks:
             opcode = block.get('opcode', '')
@@ -258,9 +309,44 @@ class QuantumExecutor:
             if opcode == 'quantum_createCircuit':
                 self.num_qubits = int(args.get('NUM_QUBITS', 1))
                 self.circuit = QuantumCircuit(self.num_qubits)
+                self.prepared_qubits = set()
+                self.operations_started = False
+
+            elif opcode == 'quantum_prepareState':
+                self._prepare_state(args)
 
             elif self.circuit is not None:
                 self._apply_gate(opcode, args)
+                self.operations_started = True
+
+    def _prepare_state(self, args: Dict) -> None:
+        """Choose a qubit's initial state at the start of the circuit.
+
+        Qubits start in 0, so preparing 0 adds nothing and preparing 1 adds one
+        X gate. That mapping only holds before any gate or measurement and at
+        most once per qubit, so those rules are enforced here.
+        """
+        if self.circuit is None:
+            raise ValueError(_prepare_message(self.locale, "no_circuit"))
+        if self.operations_started:
+            raise ValueError(_prepare_message(self.locale, "order"))
+
+        raw_qubit = args.get('QUBIT')
+        qubit = _parse_int_exact(raw_qubit)
+        if qubit is None or qubit < 0 or qubit >= self.num_qubits:
+            raise ValueError(_prepare_message(
+                self.locale, "bad_qubit", qubit=raw_qubit, max=max(self.num_qubits - 1, 0)))
+
+        state = _parse_int_exact(args.get('STATE'))
+        if state not in (0, 1):
+            raise ValueError(_prepare_message(self.locale, "bad_state"))
+
+        if qubit in self.prepared_qubits:
+            raise ValueError(_prepare_message(self.locale, "duplicate", qubit=qubit))
+        self.prepared_qubits.add(qubit)
+
+        if state == 1:
+            self.circuit.x(qubit)
 
     def _apply_gate(self, opcode: str, args: Dict) -> None:
         """Apply a gate to the circuit"""
