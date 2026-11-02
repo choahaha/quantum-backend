@@ -121,8 +121,8 @@ def create_histogram(data_str: str) -> str:
         '#4CBFE6',  # Scratch Cyan
     ]
 
-    # Format state labels with ket notation
-    formatted_states = [f'|{s}⟩' for s in states]
+    # Label bars the same way as the "get result" text: "state 0", "state 01", ...
+    formatted_states = [f'state {s}' for s in states]
 
     # Assign colors to bars
     bar_colors = [scratch_colors[i % len(scratch_colors)] for i in range(len(states))]
