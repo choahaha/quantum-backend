@@ -3,6 +3,7 @@ Quantum Circuit Executor
 Converts Scratch blocks to Qiskit code and executes
 """
 
+import re
 import time
 import json
 import base64
@@ -72,15 +73,16 @@ def _parse_int_exact(value: Any):
     return None
 
 
+# Matches one entry of a result text: "state 01: 512" (current) or "|01>: 512" (older results)
+TEXT_RESULT_PATTERN = r'(?:state\s+([01]+)|\|([01]+)>):\s*(\d+)'
+
+
 def parse_text_result(text: str) -> dict:
-    """Parse text format like '|1>: 525 (52.5%), |0>: 475 (47.5%)' to counts dict"""
-    import re
+    """Parse text like 'state 1: 525 (52.5%), state 0: 475 (47.5%)' (or the older
+    '|1>: 525 (52.5%), |0>: 475 (47.5%)') to a counts dict"""
     counts = {}
-    # Match patterns like |1>: 525 or |01>: 512
-    pattern = r'\|([01]+)>:\s*(\d+)'
-    matches = re.findall(pattern, text)
-    for state, count in matches:
-        counts[state] = int(count)
+    for state, ket_state, count in re.findall(TEXT_RESULT_PATTERN, text):
+        counts[state or ket_state] = int(count)
     return counts
 
 
@@ -96,8 +98,8 @@ def create_histogram(data_str: str) -> str:
         # JSON or Python dict format: {"0": 475, "1": 525}
         data_str = data_str.replace("'", '"')
         counts = json.loads(data_str)
-    elif '|' in data_str and '>:' in data_str:
-        # Text format: |1>: 525 (52.5%), |0>: 475 (47.5%)
+    elif re.search(TEXT_RESULT_PATTERN, data_str):
+        # Text format: state 1: 525 (52.5%), state 0: 475 (47.5%)
         counts = parse_text_result(data_str)
         if not counts:
             raise ValueError("Could not parse text result format")
@@ -399,6 +401,6 @@ class QuantumExecutor:
         parts = []
         for state, count in sorted_counts[:5]:  # Top 5 results
             percentage = (count / total_shots) * 100
-            parts.append(f"|{state}>: {count} ({percentage:.1f}%)")
+            parts.append(f"state {state}: {count} ({percentage:.1f}%)")
 
         return ", ".join(parts)
