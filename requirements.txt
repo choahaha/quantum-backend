@@ -6,4 +6,4 @@ pydantic>=2.5.0
 matplotlib>=3.8.0
 pylatexenc>=2.10
 supabase>=2.4
-PyJWT>=2.8
+PyJWT[crypto]>=2.8
