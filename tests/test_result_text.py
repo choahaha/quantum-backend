@@ -44,8 +44,13 @@ class ParseResultTextTest(unittest.TestCase):
         self.assertEqual(parse_text_result("|01>: 512 (50.0%), |10>: 512 (50.0%)"),
                          {"01": 512, "10": 512})
 
-    def test_histogram_accepts_both_formats(self):
-        for text in ("state 1: 6 (60.0%), state 0: 4 (40.0%)", "|1>: 6 (60.0%), |0>: 4 (40.0%)"):
+    def test_parses_get_counts_format(self):
+        self.assertEqual(parse_text_result("0: 49, 1: 51"), {"0": 49, "1": 51})
+        self.assertEqual(parse_text_result("00: 251, 11: 249"), {"00": 251, "11": 249})
+
+    def test_histogram_accepts_all_formats(self):
+        for text in ("state 1: 6 (60.0%), state 0: 4 (40.0%)", "|1>: 6 (60.0%), |0>: 4 (40.0%)",
+                     "0: 4, 1: 6"):
             with self.subTest(text=text):
                 self.assertTrue(create_histogram(text).startswith("data:image/png;base64,"))
 

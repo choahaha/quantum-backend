@@ -73,16 +73,17 @@ def _parse_int_exact(value: Any):
     return None
 
 
-# Matches one entry of a result text: "state 01: 512" (current) or "|01>: 512" (older results)
-TEXT_RESULT_PATTERN = r'(?:state\s+([01]+)|\|([01]+)>):\s*(\d+)'
+# Matches one entry of a result text: "state 01: 512" (get result), "01: 512" (get counts)
+# or "|01>: 512" (older results)
+TEXT_RESULT_PATTERN = r'(?:state\s+([01]+)|\|([01]+)>|\b([01]+))\s*:\s*(\d+)'
 
 
 def parse_text_result(text: str) -> dict:
-    """Parse text like 'state 1: 525 (52.5%), state 0: 475 (47.5%)' (or the older
-    '|1>: 525 (52.5%), |0>: 475 (47.5%)') to a counts dict"""
+    """Parse text like 'state 1: 525 (52.5%), state 0: 475 (47.5%)', '0: 475, 1: 525'
+    or the older '|1>: 525 (52.5%), |0>: 475 (47.5%)' to a counts dict"""
     counts = {}
-    for state, ket_state, count in re.findall(TEXT_RESULT_PATTERN, text):
-        counts[state or ket_state] = int(count)
+    for state, ket_state, plain_state, count in re.findall(TEXT_RESULT_PATTERN, text):
+        counts[state or ket_state or plain_state] = int(count)
     return counts
 
 
