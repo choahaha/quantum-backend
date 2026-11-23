@@ -395,7 +395,9 @@ class QuantumExecutor:
         if not counts:
             return "No results"
 
-        # Keep the 5 most frequent states, then list them in state order: "0: 49 times, 1: 51 times"
+        # Keep the 5 most frequent states, then list them in state order:
+        # "state 0: 49, state 1: 51" (Korean: "0: 49번, 1: 51번")
         top = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
-        unit = "번" if (self.locale or "").lower().startswith("ko") else " times"
-        return ", ".join(f"{state}: {count}{unit}" for state, count in sorted(top))
+        if (self.locale or "").lower().startswith("ko"):
+            return ", ".join(f"{state}: {count}번" for state, count in sorted(top))
+        return ", ".join(f"state {state}: {count}" for state, count in sorted(top))
