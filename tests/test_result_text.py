@@ -22,17 +22,26 @@ MEASURE = {"opcode": "quantum_measureAll", "args": {}}
 
 
 class ResultTextTest(unittest.TestCase):
-    def test_single_qubit_uses_state_label(self):
+    def test_single_qubit_lists_state_and_count(self):
         result = QuantumExecutor().execute([create(1), x(0), MEASURE], 10)
-        self.assertEqual(result["result_text"], "state 1: 10 (100.0%)")
+        self.assertEqual(result["result_text"], "1: 10 times")
 
     def test_multi_qubit_keeps_qiskit_bit_order(self):
         result = QuantumExecutor().execute([create(2), x(0), MEASURE], 10)
-        self.assertEqual(result["result_text"], "state 01: 10 (100.0%)")
+        self.assertEqual(result["result_text"], "01: 10 times")
 
-    def test_two_outcomes_sorted_by_count(self):
-        text = QuantumExecutor()._format_result({"0": 3, "1": 7}, 10)
-        self.assertEqual(text, "state 1: 7 (70.0%), state 0: 3 (30.0%)")
+    def test_two_outcomes_listed_in_state_order(self):
+        text = QuantumExecutor()._format_result({"1": 7, "0": 3}, 10)
+        self.assertEqual(text, "0: 3 times, 1: 7 times")
+
+    def test_korean_uses_beon(self):
+        text = QuantumExecutor("ko")._format_result({"1": 7, "0": 3}, 10)
+        self.assertEqual(text, "0: 3번, 1: 7번")
+
+    def test_keeps_five_most_frequent_states(self):
+        counts = {"000": 1, "001": 9, "010": 8, "011": 7, "100": 6, "101": 5, "110": 2}
+        text = QuantumExecutor()._format_result(counts, 38)
+        self.assertEqual(text, "001: 9 times, 010: 8 times, 011: 7 times, 100: 6 times, 101: 5 times")
 
 
 class ParseResultTextTest(unittest.TestCase):
@@ -48,9 +57,13 @@ class ParseResultTextTest(unittest.TestCase):
         self.assertEqual(parse_text_result("0: 49, 1: 51"), {"0": 49, "1": 51})
         self.assertEqual(parse_text_result("00: 251, 11: 249"), {"00": 251, "11": 249})
 
+    def test_parses_get_result_format(self):
+        self.assertEqual(parse_text_result("0: 49 times, 1: 51 times"), {"0": 49, "1": 51})
+        self.assertEqual(parse_text_result("0: 49번, 1: 51번"), {"0": 49, "1": 51})
+
     def test_histogram_accepts_all_formats(self):
         for text in ("state 1: 6 (60.0%), state 0: 4 (40.0%)", "|1>: 6 (60.0%), |0>: 4 (40.0%)",
-                     "0: 4, 1: 6"):
+                     "0: 4, 1: 6", "0: 4 times, 1: 6 times", "0: 4번, 1: 6번"):
             with self.subTest(text=text):
                 self.assertTrue(create_histogram(text).startswith("data:image/png;base64,"))
 

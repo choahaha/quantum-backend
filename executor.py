@@ -395,13 +395,7 @@ class QuantumExecutor:
         if not counts:
             return "No results"
 
-        # Sort by count descending
-        sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-
-        # Format each state
-        parts = []
-        for state, count in sorted_counts[:5]:  # Top 5 results
-            percentage = (count / total_shots) * 100
-            parts.append(f"state {state}: {count} ({percentage:.1f}%)")
-
-        return ", ".join(parts)
+        # Keep the 5 most frequent states, then list them in state order: "0: 49 times, 1: 51 times"
+        top = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        unit = "번" if (self.locale or "").lower().startswith("ko") else " times"
+        return ", ".join(f"{state}: {count}{unit}" for state, count in sorted(top))
